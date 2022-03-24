@@ -15,7 +15,7 @@ spanbert = SpanBERT("./pretrained_spanbert")
 
 
 
-
+#main function used to execute the entire process of tuple finding, passed in from main
 def processQuery(service, apikey, engineID, r, threshold, q, k):
     tupleDict = defaultdict(float)
     querySet = set()
@@ -24,8 +24,8 @@ def processQuery(service, apikey, engineID, r, threshold, q, k):
     hdr = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'}
     
     relation = ""
-    entities_of_interest = []
-    if (r == "1"):
+    entities_of_interest = [] 
+    if (r == "1"):    #identify the correct relation and entities of interest based on the integer r passed in.  note that entities of interest are ordered in subject, object order.
         relation = "per:schools_attended"
         entities_of_interest = ["PERSON", "ORGANIZATION"]
     elif (r == "2"):
@@ -54,7 +54,7 @@ def processQuery(service, apikey, engineID, r, threshold, q, k):
     print("# of Tuples	= " + k)
     print("Loading necessary liberaries; This should take a minute or so ...")
 
-    while len(tupleDict) < int(k) and query not in querySet:
+    while len(tupleDict) < int(k) and query not in querySet:   #while we are still missing tuples and we can execute a new search with a query that has not been used yet
         querySet.add(query)
         print("=========== Iteration: ", numIterations, " - Query: ", query, " ===========")
         
@@ -78,22 +78,22 @@ def processQuery(service, apikey, engineID, r, threshold, q, k):
             print("")
             print("URL (", urlNum, " / 10): ", url)
 
-            if url in urlSet:
+            if url in urlSet:      #if the url has already been visited
                 print("URL already visited, skipping to next URL ...")
                 continue
 
             urlSet.add(url)
 
             print("\tFetching text from url...")
-            req = requests.get(url, headers = hdr)
-            soup = BeautifulSoup(req.content, 'html.parser')
+            req = requests.get(url, headers = hdr)   #fetch the html contents of a webpage
+            soup = BeautifulSoup(req.content, 'html.parser')  #pass content to beautifulsoup and clean up unused text
             
             for script in soup(["script", "style"]):
                 script.decompose()
 
             text = ' '.join(soup.stripped_strings)
 
-            if (len(text) > 20000):
+            if (len(text) > 20000):       #if the webpage contains more than 20000 characters, trim it
                 print("\tTrimming webpage content from ", len(text), " to 20000 characters",)
                 text = text[0:20000]
 
@@ -104,29 +104,29 @@ def processQuery(service, apikey, engineID, r, threshold, q, k):
             
             sentenceCounter = 0
 
-            for sentence in doc.sents:
+            for sentence in doc.sents:    #iterate through every sentence annotated by spacy
                 examples = []
-                entity_pairs = create_entity_pairs(sentence, entities_of_interest)
+                entity_pairs = create_entity_pairs(sentence, entities_of_interest)  #obtain the entity pairs using the spacy help functions
 
-                for token, entity1, entity2 in entity_pairs:
+                for token, entity1, entity2 in entity_pairs:   #iterate through each entity pair obtained from spacy
                     subj = None
                     obj = None
-                    if entity1[1] == entities_of_interest[0]:
+                    if entity1[1] == entities_of_interest[0]:   #if the first entity in the entity pair tuple is the subject
                         subj = entity1
-                    if entity1[1] in entities_of_interest[1:]:
+                    if entity1[1] in entities_of_interest[1:]:  #if the first entity in the entity pair tuple is the object
                         obj = entity1
-                    if entity2[1] == entities_of_interest[0]:
+                    if entity2[1] == entities_of_interest[0]:   #if the second entity in the entity pair tuple is the subject
                         subj = entity2
-                    if entity2[1] in entities_of_interest[1:]:
+                    if entity2[1] in entities_of_interest[1:]:  #if the second enetity in the entity pair tuple is the object
                         obj = entity2
 
-                    if subj != None and obj != None:
+                    if subj != None and obj != None:            #if we identified a pair that satisfies the relation that we are analyzing, append it to our list of candidate pairs
                         examples.append({"tokens": token, "subj": subj, "obj": obj})
             
-                if len(examples) > 0:
+                if len(examples) > 0:                          #if there is at least 1 candidate pair that satisfies the relation that we are analyzing, extract all relations using the spacy help function
                     tupleDict, overallRelations, extractedRelations, extractedAnnotation = extract_relations(sentence, spanbert, examples, tupleDict, relation, overallRelations, extractedRelations, entities_of_interest, float(threshold))
                 
-                    if extractedAnnotation == True:
+                    if extractedAnnotation == True:           #if we ended up getting at least 1 annotation from the sentence extracted
                         extractedAnnotations += 1
 
                 sentenceCounter += 1
@@ -137,14 +137,14 @@ def processQuery(service, apikey, engineID, r, threshold, q, k):
             print("\tRelations extracted from this website: ", extractedRelations, " (Overall: ", overallRelations, ")")
             
         
-        for key, value in sorted(tupleDict.items(), key= lambda x: x[1]):
-            currentQuery = key[0] + " " + key[2]
+        for key, value in sorted(tupleDict.items(), key= lambda x: x[1]):   #sort the tuples that currently satisfy the relation being analyzed and have at least the inputted confidence score in descending confidence score order
+            currentQuery = key[0] + " " + key[2]                            #form a new query by appending the subject and object attribute values of the highest tuple that has not been used yet
             if currentQuery not in querySet:
                 query = currentQuery
                 break
     
         
-        sortedTuple = sorted(tupleDict.items(), key= lambda x: x[1], reverse = True)
+        sortedTuple = sorted(tupleDict.items(), key= lambda x: x[1], reverse = True)   #sort the tuple dict in descending confidence score order
         print("================== ALL RELATIONS for ", relation, " ( ", len(sortedTuple), " ) =================")
         
         for t in sortedTuple:
@@ -152,7 +152,7 @@ def processQuery(service, apikey, engineID, r, threshold, q, k):
         
         print("Number of Iterations: ", numIterations)
 
-        if query in querySet and len(sortedTuple) < k:
+        if query in querySet and len(sortedTuple) < k:                            #if the current query has already been used and we have not yet acquired the correct amount of tuples
             print("The execution stalled without retrieving the desired number of tuples with the specified confidence.")
         
 

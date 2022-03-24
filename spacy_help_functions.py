@@ -36,19 +36,19 @@ def extract_relations(doc, spanbert, examples, res, relation_of_interest, overal
             #examples.append({"tokens": ep[0], "subj": ep[1], "obj": ep[2]})
             #examples.append({"tokens": ep[0], "subj": ep[2], "obj": ep[1]})
     
-    extractedAnnotation = False
-    preds = spanbert.predict(examples)
+    extractedAnnotation = False   #boolean value used to track if we extracted any annotations from the sentence being analyzed (used only for )
+    preds = spanbert.predict(examples)   #run the spanbert model on every candidate pair passed in from the parameter input
     for ex, pred in list(zip(examples, preds)):
         relation = pred[0]
-        if relation != relation_of_interest:
+        if relation != relation_of_interest:   #if we encounter a relation that is not of interest to us, skip it
             continue
         extractedAnnotation = True
         overallRelations += 1
         subj = ex["subj"][0]
         obj = ex["obj"][0]
         confidence = pred[1]
-        if confidence > conf:
-            if (subj, relation, obj) not in res:
+        if confidence > conf:                #if the current relation is at least greater than the confidence passed in by the parameter
+            if (subj, relation, obj) not in res:   #first check to see if the relation is already in our list of tuples, if not then append it to the res dictionary
                 res[(subj, relation, obj)] = confidence
                 extractedRelations += 1
                 print("\n\t\t=== Extracted Relation ===")
@@ -56,24 +56,24 @@ def extract_relations(doc, spanbert, examples, res, relation_of_interest, overal
                 print("\t\tRelation: {} (Output Confidence: {:.3f}) ; Subject: {} ; Object: {}".format(relation, confidence, subj, obj))
                 print("\t\tAdding to set of extracted relations")
                 print("\t\t==========")
-            elif res[(subj, relation, obj)] < confidence:
+            elif res[(subj, relation, obj)] < confidence:    #if the current relation tuple has already been recorded, but this version contains a higher confidence leve, then update it
                 overallRelations -= 1
                 res[(subj, relation, obj)] = confidence
             else:
-                print("\n\t\t=== Extracted Relation ===")
+                print("\n\t\t=== Extracted Relation ===")   #otherwise ignore the duplicate with lower confidence value
                 print("\t\tInput tokens: {}".format(ex['tokens']))
                 print("\t\tRelation: {} (Output Confidence: {:.3f}) ; Subject: {} ; Object: {}".format(relation, confidence, subj, obj))
                 print("\t\tDuplicate with lower confidence than existing record. Ignoring this.")
                 print("\t\t==========")
-        else:
-            print("\n\t\t=== Extracted Relation ===")
+        else: 
+            print("\n\t\t=== Extracted Relation ===")     #if we've extracted a relation with a lower confidence value than the confidence value passed in by our parameter, ignore it
             print("\t\tInput tokens: {}".format(ex['tokens']))
             print("\t\tRelation: {} (Output Confidence: {:.3f}) ; Subject: {} ; Object: {}".format(relation, confidence, subj, obj))
             print("\t\tConfidence is lower than threshold confidence. Ignoring this.")
             print("\t\t==========")
             
         
-    return res, overallRelations, extractedRelations, extractedAnnotation
+    return res, overallRelations, extractedRelations, extractedAnnotation   #return the updated dictionary of tuples, the overall relations taken from the sentence, extracted relations from the sentence, and whether the sentence had been annotated or not
 
 
 def create_entity_pairs(sents_doc, entities_of_interest, window_size=40):
